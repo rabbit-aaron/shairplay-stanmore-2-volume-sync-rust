@@ -1,0 +1,15 @@
+services:
+  volume-sync:
+    build: .
+    # Host networking so it can reach the local MQTT broker.
+    network_mode: host
+    environment:
+      SHAIRPLAY_VOLUME_TOPIC: "${SHAIRPLAY_VOLUME_TOPIC:-marshall/volume}"
+      MQTT_HOSTNAME: "${MQTT_HOSTNAME:-127.0.0.1}"
+      MQTT_PORT: "${MQTT_PORT:-1883}"
+      MQTT_USERNAME: "${MQTT_USERNAME:-}"
+      MQTT_PASSWORD: "${MQTT_PASSWORD:-}"
+      STANMORE2_VOLUME_COMMAND_TOPIC: "${STANMORE2_VOLUME_COMMAND_TOPIC:-stanmore2/command/set_volume}"
+      MQTT_RETAIN: "${MQTT_RETAIN:-1}"
+      MAX_VOLUME: "${MAX_VOLUME:-32}"
+    restart: unless-stopped

@@ -1,0 +1,33 @@
+name: Build
+
+# Validates the project on every push: runs tests and builds the same static
+# aarch64 (Raspberry Pi 3) target the release workflow ships. Builds natively
+# on GitHub's arm64 hosted runners (no cross/QEMU).
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  # ring (via rustls) compiles C; point it and the linker at the musl toolchain.
+  CC_aarch64_unknown_linux_musl: musl-gcc
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+
+  aarch64-build:
+    name: build aarch64 (Raspberry Pi 3)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --target aarch64-unknown-linux-musl --locked

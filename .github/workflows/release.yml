@@ -1,0 +1,63 @@
+name: Release
+
+# Builds a static aarch64 binary for the Raspberry Pi 3 and attaches it to the
+# GitHub Release for the pushed tag. Built natively on GitHub's arm64 hosted
+# runners. Trigger by pushing a tag like `v0.1.0`, or run manually against an
+# existing tag via the Actions tab.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and release (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TARGET: aarch64-unknown-linux-musl
+  # ring (via rustls) compiles C; point it and the linker at the musl toolchain.
+  CC_aarch64_unknown_linux_musl: musl-gcc
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+
+jobs:
+  release:
+    name: aarch64 (Raspberry Pi 3)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Resolve tag
+        id: tag
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
+
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build
+        run: cargo build --release --target "$TARGET" --locked
+
+      - name: Package
+        id: package
+        run: |
+          name="volume-sync-${{ steps.tag.outputs.tag }}-$TARGET"
+          mkdir "$name"
+          cp "target/$TARGET/release/volume-sync" "$name/"
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            *.tar.gz
+            *.tar.gz.sha256
